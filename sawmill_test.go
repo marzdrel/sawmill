@@ -7,7 +7,7 @@ import (
 
 func TestProcessFile(t *testing.T) {
 	content := "line with spaces   \nsecond line\t\nthird line"
-	
+
 	testFile := "test_temp.txt"
 	err := os.WriteFile(testFile, []byte(content), 0644)
 	if err != nil {

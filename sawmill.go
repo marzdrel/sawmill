@@ -68,9 +68,11 @@ func processFile(filepath string) error {
 		return err
 	}
 
-	if len(lines) > 0 && lines[len(lines)-1] != "" {
-		lines = append(lines, "")
+	// Remove any trailing empty lines
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
 	}
+
 
 	output, err := os.Create(filepath)
 	if err != nil {
@@ -79,8 +81,21 @@ func processFile(filepath string) error {
 	defer output.Close()
 
 	writer := bufio.NewWriter(output)
-	for _, line := range lines {
-		if _, err := writer.WriteString(line + "\n"); err != nil {
+	for i, line := range lines {
+		if _, err := writer.WriteString(line); err != nil {
+			return err
+		}
+		// Add newline after each line except the last one
+		if i < len(lines)-1 {
+			if _, err := writer.WriteString("\n"); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Add exactly one final newline if file has content
+	if len(lines) > 0 {
+		if _, err := writer.WriteString("\n"); err != nil {
 			return err
 		}
 	}
