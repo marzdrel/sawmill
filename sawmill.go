@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,56 +50,117 @@ func main() {
 	}
 }
 
-func processFile(filepath string) error {
-	file, err := os.Open(filepath)
+func processFile(filePath string) error {
+	inputFile, err := os.Open(filePath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer inputFile.Close()
 
-	var lines []string
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		lines = append(lines, strings.TrimRight(line, " \t"))
-	}
-
-	if err = scanner.Err(); err != nil {
-		return err
-	}
-
-	// Remove any trailing empty lines
-	for len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-
-
-	output, err := os.Create(filepath)
+	dir := filepath.Dir(filePath)
+	tempFile, err := os.CreateTemp(dir, "sawmill_*.tmp")
 	if err != nil {
 		return err
 	}
-	defer output.Close()
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
 
-	writer := bufio.NewWriter(output)
-	for i, line := range lines {
-		if _, err := writer.WriteString(line); err != nil {
+	changed, err := processFileStreaming(inputFile, tempFile)
+	if err != nil {
+		return err
+	}
+
+	if !changed {
+		return nil
+	}
+
+	if err := tempFile.Close(); err != nil {
+		return err
+	}
+
+	if err := inputFile.Close(); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tempFile.Name(), filePath); err != nil {
+		if err := copyFile(tempFile.Name(), filePath); err != nil {
 			return err
 		}
-		// Add newline after each line except the last one
-		if i < len(lines)-1 {
-			if _, err := writer.WriteString("\n"); err != nil {
-				return err
+		return os.Remove(tempFile.Name())
+	}
+	return nil
+}
+
+func processFileStreaming(input io.Reader, output io.Writer) (bool, error) {
+	scanner := bufio.NewScanner(input)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	writer := bufio.NewWriter(output)
+	defer writer.Flush()
+
+	hasChanged := false
+	pendingNewlines := 0
+	hasContent := false
+
+	for scanner.Scan() {
+		originalLine := scanner.Text()
+		processedLine := strings.TrimRight(originalLine, " \t")
+
+		if originalLine != processedLine {
+			hasChanged = true
+		}
+
+		if processedLine == "" {
+			pendingNewlines++
+		} else {
+			if hasContent {
+				for i := 0; i < pendingNewlines; i++ {
+					if _, err := writer.WriteString("\n"); err != nil {
+						return false, err
+					}
+				}
+				if _, err := writer.WriteString("\n"); err != nil {
+					return false, err
+				}
+			}
+			pendingNewlines = 0
+			hasContent = true
+
+			if _, err := writer.WriteString(processedLine); err != nil {
+				return false, err
 			}
 		}
 	}
 
-	// Add exactly one final newline if file has content
-	if len(lines) > 0 {
+	if err := scanner.Err(); err != nil {
+		return false, err
+	}
+
+	if pendingNewlines > 0 {
+		hasChanged = true
+	}
+
+	if hasContent {
 		if _, err := writer.WriteString("\n"); err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	return writer.Flush()
+	return hasChanged, nil
+}
+
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	return err
 }
