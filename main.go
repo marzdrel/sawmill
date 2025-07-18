@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	gitignore "github.com/denormal/go-gitignore"
-	"sawmill/processor"
+	"github.com/marzdrel/sawmill/processor"
 )
 
 var defaultPatterns = []string{

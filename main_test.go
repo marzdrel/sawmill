@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"sawmill/processor"
+	"github.com/marzdrel/sawmill/processor"
 )
 
 func TestProcessFile(t *testing.T) {

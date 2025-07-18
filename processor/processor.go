@@ -1,3 +1,5 @@
+// Package processor provides file processing functionality for removing
+// trailing whitespace and ensuring proper newline handling.
 package processor
 
 import (
@@ -8,6 +10,7 @@ import (
 	"strings"
 )
 
+// Result represents the outcome of processing a file.
 type Result struct {
 	Changed bool
 	err     error
@@ -28,6 +31,8 @@ func makeResult(changed bool, err error) Result {
 	}
 }
 
+// ProcessFile processes a file to remove trailing whitespace and ensure
+// proper newline handling. Returns a Result indicating if changes were made.
 func ProcessFile(filePath string) (result Result) {
 	result = Result{Changed: false, err: nil}
 
