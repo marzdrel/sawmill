@@ -13,24 +13,35 @@ A simple linter that removes trailing whitespace and ensures proper newline hand
 - Respects `.gitignore` patterns
 - Memory-efficient streaming processing for large files
 
+## Installation
+
+Install directly from GitHub:
+
+```bash
+go install github.com/marzdrel/sawmill@latest
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/marzdrel/sawmill.git
+cd sawmill
+go build -o sawmill
+```
+
 ## Usage
 
 ```bash
 # Process default file types in current directory
-./sawmill
+sawmill
 
 # Process specific file patterns
-./sawmill --pattern="*.go,*.js"
+sawmill --pattern="*.go,*.js"
 
 # Ignore gitignore and process all matching files
-./sawmill -u
+sawmill -u
 
 # Enable verbose output
-./sawmill --verbose
+sawmill --verbose
 ```
 
-## Build
-
-```bash
-go build -o sawmill
-```
