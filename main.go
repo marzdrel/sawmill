@@ -57,7 +57,6 @@ func main() {
 
 	root := "."
 
-	// Load .gitignore if it exists
 	var gi gitignore.GitIgnore
 	if _, err := os.Stat(".gitignore"); err == nil {
 		if parsedGi, parseErr := gitignore.NewFromFile(".gitignore"); parseErr == nil {
@@ -76,9 +75,7 @@ func main() {
 				return nil
 			}
 
-			// Skip files ignored by gitignore (unless -u flag is used)
 			if gi != nil && !ignoreGitignore {
-				// Use relative path for gitignore matching
 				relPath := path
 				if strings.HasPrefix(path, "./") {
 					relPath = path[2:]
