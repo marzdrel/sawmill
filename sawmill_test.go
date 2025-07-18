@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"testing"
+
+	"sawmill/processor"
 )
 
 func TestProcessFile(t *testing.T) {
@@ -12,7 +14,7 @@ func TestProcessFile(t *testing.T) {
 	os.WriteFile(testFile, []byte(content), 0o644)
 	defer os.Remove(testFile)
 
-	processFile(testFile)
+	processor.ProcessFile(testFile)
 	result, _ := os.ReadFile(testFile)
 
 	expected := "  line with spaces\nsecond line\nthird line\n"
@@ -29,7 +31,7 @@ func TestProcessFileNoChanges(t *testing.T) {
 	defer os.Remove(testFile)
 
 	stat1, _ := os.Stat(testFile)
-	processFile(testFile)
+	processor.ProcessFile(testFile)
 	stat2, _ := os.Stat(testFile)
 
 	result, _ := os.ReadFile(testFile)

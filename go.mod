@@ -1,4 +1,4 @@
-module github.com/marzdrel/sawmill
+module sawmill
 
 go 1.24.3
 
