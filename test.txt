@@ -1,4 +1,0 @@
-This is a test file
-with trailing spaces
-and no final newline
-

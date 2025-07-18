@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	gitignore "github.com/denormal/go-gitignore"
 )
 
 var defaultPatterns = []string{
@@ -34,21 +36,31 @@ func main() {
 	var extensions []string
 	var stats runStats
 
-	pattern := *flag.String("pattern", "",
+	patternFlag := flag.String("pattern", "",
 		"Comma-separated list of file patterns to process")
 
-	stats.verbose = *flag.Bool("verbose", false,
+	verboseFlag := flag.Bool("verbose", false,
 		"Enable verbose output")
 
 	flag.Parse()
 
-	if len(pattern) == 0 {
-		extensions = defaultPatterns
-	} else {
+	stats.verbose = *verboseFlag
+	pattern := *patternFlag
+
+	extensions = defaultPatterns
+	if len(pattern) > 0 {
 		extensions = strings.Split(pattern, ",")
 	}
 
 	root := "."
+
+	// Load .gitignore if it exists
+	var gi gitignore.GitIgnore
+	if _, err := os.Stat(".gitignore"); err == nil {
+		if parsedGi, parseErr := gitignore.NewFromFile(".gitignore"); parseErr == nil {
+			gi = parsedGi
+		}
+	}
 
 	err := filepath.Walk(
 		root,
@@ -59,6 +71,19 @@ func main() {
 
 			if info.IsDir() {
 				return nil
+			}
+
+			// Skip files ignored by gitignore
+			if gi != nil {
+				// Use relative path for gitignore matching
+				relPath := path
+				if strings.HasPrefix(path, "./") {
+					relPath = path[2:]
+				}
+				if match := gi.Match(relPath); match != nil && match.Ignore() {
+					stats.Log("Skipping ignored file: %s\n", path)
+					return nil
+				}
 			}
 
 			var matched bool
