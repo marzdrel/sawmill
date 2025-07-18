@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -9,14 +10,44 @@ import (
 	"strings"
 )
 
+var defaultPatterns = []string{
+	"*.go", "*.js", "*.ts", "*.py", ".rb",
+	"*.toml", "*.yml", "*.yaml", "*.json", "*.xml",
+	"*.html", "*.css", "*.scss", "*.md",
+	"*.txt", "*.conf", "*.ini", "*.sh",
+	"*.tf", "Dockerfile.*",
+}
+
+type runStats struct {
+	FilesProcessed int
+	FilesChanged   int
+	verbose        bool
+}
+
+func (s *runStats) Log(template string, args ...any) {
+	if s.verbose {
+		fmt.Printf(template, args...)
+	}
+}
+
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: sawmill <pattern>")
-		fmt.Println("Example: sawmill.go '*.go'")
-		os.Exit(1)
+	var extensions []string
+	var stats runStats
+
+	pattern := *flag.String("pattern", "",
+		"Comma-separated list of file patterns to process")
+
+	stats.verbose = *flag.Bool("verbose", false,
+		"Enable verbose output")
+
+	flag.Parse()
+
+	if len(pattern) == 0 {
+		extensions = defaultPatterns
+	} else {
+		extensions = strings.Split(pattern, ",")
 	}
 
-	pattern := os.Args[1]
 	root := "."
 
 	err := filepath.Walk(
@@ -30,65 +61,111 @@ func main() {
 				return nil
 			}
 
-			matched, err := filepath.Match(pattern, info.Name())
-			if err != nil {
-				return err
+			var matched bool
+
+			for _, ext := range extensions {
+				matched, err = filepath.Match(ext, info.Name())
+				if err != nil {
+					return err
+				}
+				if matched {
+					break
+				}
 			}
 
 			if matched {
-				fmt.Printf("Processing: %s\n", path)
-				if err := processFile(path); err != nil {
+				stats.FilesProcessed++
+				stats.Log("Processing: %s\n", path)
+				result := processFile(path)
+				if result.isErr() {
 					fmt.Printf("Error processing %s: %v\n", path, err)
+				}
+
+				if result.Changed {
+					stats.FilesChanged++
+					fmt.Printf("File changed: %s\n", path)
 				}
 			}
 
 			return nil
 		})
+
+	fmt.Printf("Processed %d files, changed %d files.\n", stats.FilesProcessed, stats.FilesChanged)
 	if err != nil {
 		fmt.Printf("Error walking directory: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func processFile(filePath string) error {
-	inputFile, err := os.Open(filePath)
-	if err != nil {
-		return err
+type processResult struct {
+	Changed bool
+	err     error
+}
+
+func (p *processResult) isErr() bool {
+	return p.err != nil
+}
+
+func makeProcessResult(changed bool, err error) processResult {
+	return processResult{
+		Changed: changed,
+		err:     err,
+	}
+}
+
+func processFile(filePath string) (result processResult) {
+	result = processResult{Changed: false, err: nil}
+
+	var inputFile *os.File
+
+	inputFile, result.err = os.Open(filePath)
+	if result.isErr() {
+		return
 	}
 	defer inputFile.Close()
 
 	dir := filepath.Dir(filePath)
-	tempFile, err := os.CreateTemp(dir, "sawmill_*.tmp")
-	if err != nil {
-		return err
+
+	var tempFile *os.File
+	tempFile, result.err = os.CreateTemp(dir, "sawmill_*.tmp")
+	if result.isErr() {
+		return
 	}
 	defer os.Remove(tempFile.Name())
 	defer tempFile.Close()
 
-	changed, err := processFileStreaming(inputFile, tempFile)
-	if err != nil {
-		return err
+	result = makeProcessResult(processFileStreaming(inputFile, tempFile))
+	if result.isErr() {
+		return
 	}
 
-	if !changed {
-		return nil
+	if !result.Changed {
+		return
 	}
 
-	if err := tempFile.Close(); err != nil {
-		return err
+	result.err = tempFile.Close()
+	if result.isErr() {
+		return
 	}
 
-	if err := inputFile.Close(); err != nil {
-		return err
+	result.err = inputFile.Close()
+
+	if result.isErr() {
+		return
 	}
 
-	if err := os.Rename(tempFile.Name(), filePath); err != nil {
-		if err := copyFile(tempFile.Name(), filePath); err != nil {
-			return err
+	result.err = os.Rename(tempFile.Name(), filePath)
+	if result.isErr() {
+		result.err = copyFile(tempFile.Name(), filePath)
+		if result.isErr() {
+			return
 		}
-		return os.Remove(tempFile.Name())
+		result.err = os.Remove(tempFile.Name())
+		if result.isErr() {
+			return
+		}
 	}
-	return nil
+	return
 }
 
 func processFileStreaming(input io.Reader, output io.Writer) (bool, error) {
