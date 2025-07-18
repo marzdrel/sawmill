@@ -42,10 +42,14 @@ func main() {
 	verboseFlag := flag.Bool("verbose", false,
 		"Enable verbose output")
 
+	ignoreGitignoreFlag := flag.Bool("u", false,
+		"Ignore gitignore entries and process all matching files")
+
 	flag.Parse()
 
 	stats.verbose = *verboseFlag
 	pattern := *patternFlag
+	ignoreGitignore := *ignoreGitignoreFlag
 
 	extensions = defaultPatterns
 	if len(pattern) > 0 {
@@ -73,8 +77,8 @@ func main() {
 				return nil
 			}
 
-			// Skip files ignored by gitignore
-			if gi != nil {
+			// Skip files ignored by gitignore (unless -u flag is used)
+			if gi != nil && !ignoreGitignore {
 				// Use relative path for gitignore matching
 				relPath := path
 				if strings.HasPrefix(path, "./") {
