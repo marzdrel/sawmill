@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	gitignore "github.com/denormal/go-gitignore"
 	"github.com/marzdrel/sawmill/processor"
@@ -38,6 +39,7 @@ var defaultPatterns = []string{
 type runStats struct {
 	FilesProcessed int
 	FilesChanged   int
+	startTime      time.Time
 	verbose        bool
 }
 
@@ -45,6 +47,25 @@ func (s *runStats) Log(template string, args ...any) {
 	if s.verbose {
 		fmt.Printf(template, args...)
 	}
+}
+
+func (s *runStats) duration() time.Duration {
+	duration := time.Since(s.startTime)
+
+	if duration > time.Second {
+		return duration.Round(10 * time.Millisecond)
+	} else {
+		return duration.Round(10 * time.Microsecond)
+	}
+}
+
+func (s *runStats) Summary() string {
+	return fmt.Sprintf(
+		"Processed %d files, changed %d files in %s.\n",
+		s.FilesProcessed,
+		s.FilesChanged,
+		s.duration(),
+	)
 }
 
 func main() {
@@ -71,6 +92,8 @@ func main() {
 	}
 
 	stats.verbose = *verboseFlag
+	stats.startTime = time.Now()
+
 	pattern := *patternFlag
 	ignoreGitignore := *ignoreGitignoreFlag
 
@@ -139,7 +162,8 @@ func main() {
 			return nil
 		})
 
-	fmt.Printf("Processed %d files, changed %d files.\n", stats.FilesProcessed, stats.FilesChanged)
+	fmt.Println(stats.Summary())
+
 	if err != nil {
 		fmt.Printf("Error walking directory: %v\n", err)
 		os.Exit(1)
