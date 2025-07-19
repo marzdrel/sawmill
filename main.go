@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	gitignore "github.com/denormal/go-gitignore"
@@ -12,6 +13,18 @@ import (
 )
 
 var version = "dev"
+
+func getVersion() string {
+	if version != "dev" {
+		return version
+	}
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		return info.Main.Version
+	}
+
+	return "dev"
+}
 
 var defaultPatterns = []string{
 	"*.go", "*.js", "*.ts", "*.jsx", "*.tsx",
@@ -53,7 +66,7 @@ func main() {
 	flag.Parse()
 
 	if *versionFlag {
-		fmt.Printf("sawmill version %s\n", version)
+		fmt.Printf("sawmill version %s\n", getVersion())
 		os.Exit(0)
 	}
 
