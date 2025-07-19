@@ -11,8 +11,11 @@ import (
 	"github.com/marzdrel/sawmill/processor"
 )
 
+var version = "dev"
+
 var defaultPatterns = []string{
-	"*.go", "*.js", "*.ts", "*.py", ".rb",
+	"*.go", "*.js", "*.ts", "*.jsx", "*.tsx",
+	"*.py", ".rb", "*.rs",
 	"*.toml", "*.yml", "*.yaml", "*.json", "*.xml",
 	"*.html", "*.css", "*.scss", "*.md",
 	"*.txt", "*.conf", "*.ini", "*.sh",
@@ -44,7 +47,15 @@ func main() {
 	ignoreGitignoreFlag := flag.Bool("u", false,
 		"Ignore gitignore entries and process all matching files")
 
+	versionFlag := flag.Bool("version", false,
+		"Show version information")
+
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("sawmill version %s\n", version)
+		os.Exit(0)
+	}
 
 	stats.verbose = *verboseFlag
 	pattern := *patternFlag
