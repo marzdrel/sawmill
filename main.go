@@ -7,11 +7,14 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	gitignore "github.com/denormal/go-gitignore"
 	"github.com/marzdrel/sawmill/processor"
 )
+
+const concurrency = 30
 
 var version = "dev"
 
@@ -61,7 +64,7 @@ func (s *runStats) duration() time.Duration {
 
 func (s *runStats) Summary() string {
 	return fmt.Sprintf(
-		"Processed %d files, changed %d files in %s.\n",
+		"Processed %d files, changed %d files in %s.",
 		s.FilesProcessed,
 		s.FilesChanged,
 		s.duration(),
@@ -83,6 +86,9 @@ func main() {
 
 	versionFlag := flag.Bool("version", false,
 		"Show version information")
+
+	concurrencyFlag := flag.Int("workers", concurrency,
+		"Number of concurrent workers to use")
 
 	flag.Parse()
 
@@ -111,61 +117,88 @@ func main() {
 		}
 	}
 
-	err := filepath.Walk(
-		root,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
+	jobs := make(chan string)
+	results := make(chan processor.Result)
+	var wg sync.WaitGroup
+
+	for range *concurrencyFlag {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for job := range jobs {
+				result := processor.ProcessFile(job)
+				results <- result
 			}
+		}()
+	}
 
-			if info.IsDir() {
-				return nil
-			}
-
-			if gi != nil && !ignoreGitignore {
-				relPath := path
-				if strings.HasPrefix(path, "./") {
-					relPath = path[2:]
-				}
-				if match := gi.Match(relPath); match != nil && match.Ignore() {
-					stats.Log("Skipping ignored file: %s\n", path)
-					return nil
-				}
-			}
-
-			var matched bool
-
-			for _, ext := range extensions {
-				matched, err = filepath.Match(ext, info.Name())
+	go func() {
+		defer close(jobs)
+		err := filepath.Walk(
+			root,
+			func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
+
+				if info.IsDir() {
+					return nil
+				}
+
+				if gi != nil && !ignoreGitignore {
+					relPath := path
+					if strings.HasPrefix(path, "./") {
+						relPath = path[2:]
+					}
+					if match := gi.Match(relPath); match != nil && match.Ignore() {
+						stats.Log("Skipping ignored file: %s\n", path)
+						return nil
+					}
+				}
+
+				var matched bool
+
+				for _, ext := range extensions {
+					matched, err = filepath.Match(ext, info.Name())
+					if err != nil {
+						return err
+					}
+					if matched {
+						break
+					}
+				}
+
 				if matched {
-					break
-				}
-			}
+					stats.FilesProcessed++
+					stats.Log("Processing: %s\n", path)
 
-			if matched {
-				stats.FilesProcessed++
-				stats.Log("Processing: %s\n", path)
-				result := processor.ProcessFile(path)
-				if result.IsErr() {
-					fmt.Printf("Error processing %s: %v\n", path, result.Err())
+					jobs <- path
 				}
 
-				if result.Changed {
-					stats.FilesChanged++
-					fmt.Printf("File changed: %s\n", path)
-				}
-			}
+				return nil
+			})
+		if err != nil {
+			fmt.Printf("Error walking directory: %v\n", err)
+		}
+	}()
 
-			return nil
-		})
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	for result := range results {
+		if result.Err() != nil {
+			fmt.Printf("Error processing file %s: %v\n", result.Path, result.Err())
+			continue
+		}
+
+		if result.Changed {
+			stats.FilesChanged++
+			stats.Log("Changed: %s\n", result.Path)
+		}
+	}
 
 	fmt.Println(stats.Summary())
-
-	if err != nil {
-		fmt.Printf("Error walking directory: %v\n", err)
-		os.Exit(1)
-	}
 }

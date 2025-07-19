@@ -12,6 +12,7 @@ import (
 
 // Result represents the outcome of processing a file.
 type Result struct {
+	Path    string
 	Changed bool
 	err     error
 }
@@ -34,7 +35,7 @@ func makeResult(changed bool, err error) Result {
 // ProcessFile processes a file to remove trailing whitespace and ensure
 // proper newline handling. Returns a Result indicating if changes were made.
 func ProcessFile(filePath string) (result Result) {
-	result = Result{Changed: false, err: nil}
+	result = Result{Changed: false, err: nil, Path: filePath}
 
 	var inputFile *os.File
 
