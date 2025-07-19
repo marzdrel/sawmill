@@ -44,4 +44,3 @@ sawmill -u
 # Enable verbose output
 sawmill --verbose
 ```
-
