@@ -63,10 +63,10 @@ func TestProcessFileStreaming(t *testing.T) {
 			changed:  true,
 		},
 		{
-			name:     "no final newline added",
+			name:     "final newline added",
 			input:    "content",
 			expected: "content\n",
-			changed:  false,
+			changed:  true,
 		},
 		{
 			name:     "multiple lines with trailing whitespace",

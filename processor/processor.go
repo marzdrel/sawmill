@@ -4,6 +4,7 @@ package processor
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -98,6 +99,23 @@ func processFileStreaming(input io.Reader, output io.Writer) (bool, error) {
 	hasChanged := false
 	pendingNewlines := 0
 	hasContent := false
+	fileEndsWithNewline := false
+
+	scanner.Split(
+		func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			if atEOF && len(data) == 0 {
+				return 0, nil, nil
+			}
+			if index := bytes.IndexByte(data, '\n'); index >= 0 {
+				fileEndsWithNewline = true
+				return index + 1, data[0:index], nil
+			}
+			if atEOF {
+				fileEndsWithNewline = false
+				return len(data), data, nil
+			}
+			return 0, nil, nil
+		})
 
 	for scanner.Scan() {
 		originalLine := scanner.Text()
@@ -138,6 +156,10 @@ func processFileStreaming(input io.Reader, output io.Writer) (bool, error) {
 	}
 
 	if hasContent {
+		if !fileEndsWithNewline {
+			hasChanged = true
+		}
+
 		if _, err := writer.WriteString("\n"); err != nil {
 			return false, err
 		}
