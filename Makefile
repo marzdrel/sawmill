@@ -12,7 +12,8 @@ build:
 
 # Run tests
 test:
-	go test -v ./...
+	gotestsum --format testdox
+	# go test -v ./...
 
 # Clean build artifacts
 clean:
