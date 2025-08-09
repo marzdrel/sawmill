@@ -110,6 +110,14 @@ func main() {
 
 	root := "."
 
+	var singleFile string
+	if flag.NArg() > 0 {
+		arg := flag.Arg(0)
+		if info, err := os.Stat(arg); err == nil && !info.IsDir() {
+			singleFile = arg
+		}
+	}
+
 	var gi gitignore.GitIgnore
 	if _, err := os.Stat(".gitignore"); err == nil {
 		if parsedGi, parseErr := gitignore.NewFromFile(".gitignore"); parseErr == nil {
@@ -135,6 +143,14 @@ func main() {
 
 	go func() {
 		defer close(jobs)
+
+		if singleFile != "" {
+			stats.FilesProcessed++
+			stats.Log("Processing: %s\n", singleFile)
+			jobs <- singleFile
+			return
+		}
+
 		err := filepath.Walk(
 			root,
 			func(path string, info os.FileInfo, err error) error {
