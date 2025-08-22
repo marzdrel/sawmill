@@ -32,7 +32,7 @@ func getVersion() string {
 
 var defaultPatterns = []string{
 	"*.go", "*.js", "*.ts", "*.jsx", "*.tsx",
-	"*.py", ".rb", "*.rs",
+	"*.py", "*.rb", "*.rs",
 	"*.toml", "*.yml", "*.yaml", "*.json", "*.xml",
 	"*.html", "*.css", "*.scss", "*.md",
 	"*.txt", "*.conf", "*.ini", "*.sh",
