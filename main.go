@@ -75,6 +75,13 @@ func main() {
 	var extensions []string
 	var stats runStats
 
+	// Custom usage to include version
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "sawmill version %s\n\n", getVersion())
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	patternFlag := flag.String("pattern", "",
 		"Comma-separated list of file patterns to process")
 
